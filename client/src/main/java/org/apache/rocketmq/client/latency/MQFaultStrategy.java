@@ -22,6 +22,11 @@ import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.common.message.MessageQueue;
 
+
+/**
+ * mq故障策略
+ * Producer消息发送容错策略。默认情况下容错策略关闭，即sendLatencyFaultEnable=false
+ */
 public class MQFaultStrategy {
     private final static InternalLogger log = ClientLogger.getLog();
     /**
@@ -108,12 +113,20 @@ public class MQFaultStrategy {
                 log.error("Error occurred when selecting message queue", e);
             }
 
+            // 选择一个消息队列，不考虑队列的可用性
             return tpInfo.selectOneMessageQueue();
         }
 
+        // 获得 lastBrokerName 对应的一个消息队列，不考虑该队列的可用性
         return tpInfo.selectOneMessageQueue(lastBrokerName);
     }
 
+    /**
+     * 更新延迟容错信息
+     * @param brokerName brokerName
+     * @param currentLatency  延迟
+     * @param isolation  是否隔离。当开启隔离时，默认延迟为30000。目前主要用于发送消息异常时
+     */
     public void updateFaultItem(final String brokerName, final long currentLatency, boolean isolation) {
         if (this.sendLatencyFaultEnable) {
             long duration = computeNotAvailableDuration(isolation ? 30000 : currentLatency);
@@ -121,6 +134,19 @@ public class MQFaultStrategy {
         }
     }
 
+    /**
+     * 计算延迟对应的不可用时间
+     * Producer发送消息消耗时长 	Broker不可用时长
+     * >= 15000 ms	            600 * 1000 ms
+     * >= 3000 ms	            180 * 1000 ms
+     * >= 2000 ms	            120 * 1000 ms
+     * >= 1000 ms	            60 * 1000 ms
+     * >= 550 ms	            30 * 1000 ms
+     * >= 100 ms	            0 ms
+     * >= 50 ms	                0 ms
+     * @param currentLatency 延迟
+     * @return 不可用时间
+     */
     private long computeNotAvailableDuration(final long currentLatency) {
         for (int i = latencyMax.length - 1; i >= 0; i--) {
             if (currentLatency >= latencyMax[i])
