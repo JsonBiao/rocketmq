@@ -576,6 +576,7 @@ public class CommitLog {
         // 获取写入映射文件
         MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile();
 
+        // 获取写入锁
         putMessageLock.lock(); //spin or ReentrantLock ,depending on store config
         try {
             long beginLockTimestamp = this.defaultMessageStore.getSystemClock().now();
