@@ -37,6 +37,7 @@ import org.apache.rocketmq.remoting.exception.RemotingException;
 
 /**
  * Local storage implementation
+ * Consumer 广播模式下，使用本地 文件 消费进度
  */
 public class LocalFileOffsetStore implements OffsetStore {
     public final static String LOCAL_OFFSET_STORE_DIR = System.getProperty(
@@ -60,10 +61,12 @@ public class LocalFileOffsetStore implements OffsetStore {
 
     @Override
     public void load() throws MQClientException {
+        // 从本地硬盘读取消费进度
         OffsetSerializeWrapper offsetSerializeWrapper = this.readLocalOffset();
         if (offsetSerializeWrapper != null && offsetSerializeWrapper.getOffsetTable() != null) {
             offsetTable.putAll(offsetSerializeWrapper.getOffsetTable());
 
+            // 打印每个消息队列的消费进度
             for (MessageQueue mq : offsetSerializeWrapper.getOffsetTable().keySet()) {
                 AtomicLong offset = offsetSerializeWrapper.getOffsetTable().get(mq);
                 log.info("load consumer's offset, {} {} {}",
